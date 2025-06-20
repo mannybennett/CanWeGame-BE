@@ -1,0 +1,6 @@
+@CanWeGame.API_HostAddress = http://localhost:5110
+
+GET {{CanWeGame.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
