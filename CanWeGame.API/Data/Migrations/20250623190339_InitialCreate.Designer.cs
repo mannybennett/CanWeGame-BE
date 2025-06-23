@@ -11,16 +11,16 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CanWeGame.API.Data.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20250621200026_InitialCreate")]
+    [Migration("20250623190339_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "9.0.6");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.6");
 
-            modelBuilder.Entity("CanWeGame.API.Models.Friends", b =>
+            modelBuilder.Entity("CanWeGame.API.Models.Friendship", b =>
                 {
                     b.Property<int>("UserId1")
                         .HasColumnType("INTEGER");
@@ -35,7 +35,7 @@ namespace CanWeGame.API.Data.Migrations
 
                     b.HasIndex("UserId2");
 
-                    b.ToTable("Friends");
+                    b.ToTable("Friendships");
                 });
 
             modelBuilder.Entity("CanWeGame.API.Models.Schedule", b =>
@@ -109,16 +109,16 @@ namespace CanWeGame.API.Data.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("CanWeGame.API.Models.Friends", b =>
+            modelBuilder.Entity("CanWeGame.API.Models.Friendship", b =>
                 {
                     b.HasOne("CanWeGame.API.Models.User", "User1")
-                        .WithMany("SentFriends")
+                        .WithMany("SentFriendships")
                         .HasForeignKey("UserId1")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("CanWeGame.API.Models.User", "User2")
-                        .WithMany("ReceivedFriends")
+                        .WithMany("ReceivedFriendships")
                         .HasForeignKey("UserId2")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -141,11 +141,11 @@ namespace CanWeGame.API.Data.Migrations
 
             modelBuilder.Entity("CanWeGame.API.Models.User", b =>
                 {
-                    b.Navigation("ReceivedFriends");
+                    b.Navigation("ReceivedFriendships");
 
                     b.Navigation("Schedules");
 
-                    b.Navigation("SentFriends");
+                    b.Navigation("SentFriendships");
                 });
 #pragma warning restore 612, 618
         }

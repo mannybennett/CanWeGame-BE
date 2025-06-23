@@ -1,11 +1,6 @@
-namespace CanWeGame.API.Models
+namespace CanWeGame.API.Models // Namespace adjusted to CanWeGame.API
 {
-    // This model represents a friendship relationship between two users.
-    // It's a many-to-many relationship handled via an intermediary table.
-    // Note: We'll enforce a unique constraint on (UserId1, UserId2) pair
-    // to prevent duplicate friendships, and ensure UserId1 < UserId2
-    // to prevent (A,B) and (B,A) from both existing.
-    public class Friends
+    public class Friendship
     {
         // Composite primary key (UserId1, UserId2) will be configured in DbContext
         public int UserId1 { get; set; } // The ID of the first user in the friendship (lower ID)

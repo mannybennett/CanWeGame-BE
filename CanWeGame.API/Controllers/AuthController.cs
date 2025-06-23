@@ -1,5 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore; // For AnyAsync
+using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt; // For JwtSecurityToken, JwtSecurityTokenHandler
+using System.Security.Claims; // For Claims, ClaimTypes
+using System.Text; // For Encoding
+using Microsoft.IdentityModel.Tokens; // For SymmetricSecurityKey, SigningCredentials
+using Microsoft.Extensions.Configuration; // For IConfiguration
+
 using CanWeGame.API.Data;
 using CanWeGame.API.Models;
 using CanWeGame.API.Dtos.Auth;
@@ -7,65 +13,53 @@ using CanWeGame.API.Services; // For PasswordHasher
 
 namespace CanWeGame.API.Controllers
 {
-    [Route("api/[controller]")] // Sets the base route for this controller (e.g., /api/Auth)
-    [ApiController] // Indicates that this class is an API controller
-    public class AuthController : ControllerBase // Base class for MVC controllers without view support
+    [Route("api/[controller]")]
+    [ApiController]
+    public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _configuration; // To access appsettings.json for JWT settings
 
-        // Constructor for Dependency Injection.
-        // ASP.NET Core will automatically provide an instance of ApplicationDbContext.
-        public AuthController(ApplicationDbContext context)
+        public AuthController(ApplicationDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
-        // POST: api/Auth/register
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto model)
         {
-            // Basic validation provided by [Required] and other attributes in DTO
             if (!ModelState.IsValid)
             {
-                return BadRequest(ModelState); // Returns detailed validation errors
+                return BadRequest(ModelState);
             }
 
-            // Check if username already exists
             if (await _context.Users.AnyAsync(u => u.Username == model.Username))
             {
-                return Conflict("Username already exists."); // 409 Conflict
+                return Conflict("Username already exists.");
             }
 
-            // Check if email already exists
             if (await _context.Users.AnyAsync(u => u.Email == model.Email))
             {
-                return Conflict("Email already exists."); // 409 Conflict
+                return Conflict("Email already exists.");
             }
 
-            // Hash the password using BCrypt
             string hashedPassword = PasswordHasher.HashPassword(model.Password);
 
-            // Create a new User entity
             var newUser = new User
             {
                 Username = model.Username,
                 Email = model.Email,
-                PasswordHash = hashedPassword, // Store the hashed password
+                PasswordHash = hashedPassword,
                 CreatedDate = DateTime.UtcNow
             };
 
-            // Add the new user to the database context
             _context.Users.Add(newUser);
-            // Save changes to the database
             await _context.SaveChangesAsync();
 
-            // Return a 201 Created status code with the location of the newly created resource
-            // and the user data (excluding password hash)
-            // In a real app, you might return a stripped-down UserResponseDto here.
             return StatusCode(201, new { Message = "Registration successful!", UserId = newUser.Id });
         }
 
-        // POST: api/Auth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto model)
         {
@@ -74,19 +68,50 @@ namespace CanWeGame.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            // Find user by username
             var user = await _context.Users.SingleOrDefaultAsync(u => u.Username == model.Username);
 
-            // If user not found OR password doesn't match
             if (user == null || !PasswordHasher.VerifyPassword(model.Password, user.PasswordHash))
             {
-                // Return 401 Unauthorized for either case for security reasons (don't reveal if username exists)
                 return Unauthorized("Invalid username or password.");
             }
 
-            // Placeholder for JWT Token Generation (we'll implement this later)
-            // For now, just indicate success
-            return Ok(new { Message = "Login successful!", Username = user.Username, UserId = user.Id });
+            // --- JWT Token Generation ---
+            var jwtKey = _configuration["Jwt:Key"];
+            var jwtIssuer = _configuration["Jwt:Issuer"];
+            var jwtAudience = _configuration["Jwt:Audience"];
+            var expiryMinutesString = _configuration["Jwt:ExpiryMinutes"];
+
+            if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience) || string.IsNullOrEmpty(expiryMinutesString))
+            {
+                throw new InvalidOperationException("JWT configuration is missing in appsettings.json.");
+            }
+
+            int expiryMinutes = int.Parse(expiryMinutesString);
+
+            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+            // Define claims to be included in the token (e.g., User ID, Username)
+            var claims = new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()), // Standard claim for user ID
+                new Claim(ClaimTypes.Name, user.Username), // Standard claim for username
+                new Claim(JwtRegisteredClaimNames.Sub, user.Username), // Subject claim
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) // JWT ID
+            };
+
+            var token = new JwtSecurityToken(
+                issuer: jwtIssuer,
+                audience: jwtAudience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expiryMinutes), // Token expiration
+                signingCredentials: credentials);
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenString = tokenHandler.WriteToken(token);
+            // --- End JWT Token Generation ---
+
+            return Ok(new { Token = tokenString, Username = user.Username, UserId = user.Id });
         }
     }
 }

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization; // NOW REQUIRED AGAIN
 using System.Security.Claims;
 using CanWeGame.API.Data;
 using CanWeGame.API.Models;
@@ -10,7 +10,7 @@ namespace CanWeGame.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // All endpoints in this controller require authentication
+    [Authorize] // RE-ENABLED: All endpoints in this controller now require authentication
     public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -22,21 +22,26 @@ namespace CanWeGame.API.Controllers
 
         private int GetCurrentUserId()
         {
+            // This will now correctly read the user ID from the authenticated JWT token.
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
             {
-                throw new InvalidOperationException("User ID claim not found or invalid.");
+                // If this exception is thrown, it means the [Authorize] attribute failed,
+                // or the JWT token somehow didn't contain the NameIdentifier claim.
+                throw new InvalidOperationException("User ID claim not found or invalid in authenticated context.");
             }
             return userId;
         }
 
         // GET: api/Users/all
         // Get a list of all registered users (for searching friends, etc.)
+        // NOTE: This endpoint might ideally be public or have different authorization rules.
+        // For now, it requires authentication as per the controller's [Authorize] attribute.
         [HttpGet("all")]
         public async Task<IActionResult> GetAllUsers()
         {
             var users = await _context.Users
-                .Select(u => new UserResponseDto // Map to DTO to avoid exposing password hash
+                .Select(u => new UserResponseDto
                 {
                     Id = u.Id,
                     Username = u.Username,
@@ -49,7 +54,6 @@ namespace CanWeGame.API.Controllers
         }
 
         // GET: api/Users/{id}
-        // Get details of a specific user by ID
         [HttpGet("{id}")]
         public async Task<IActionResult> GetUserById(int id)
         {
@@ -72,7 +76,6 @@ namespace CanWeGame.API.Controllers
 
 
         // GET: api/Users/friends
-        // Get the list of friends for the current user
         [HttpGet("friends")]
         public async Task<IActionResult> GetMyFriends()
         {
@@ -80,18 +83,16 @@ namespace CanWeGame.API.Controllers
             {
                 var currentUserId = GetCurrentUserId();
 
-                // Get friendships where the current user is User1 or User2
-                var friendships = await _context.Friends
+                var friendships = await _context.Friendships // Using Friendships DbSet
                     .Where(f => f.UserId1 == currentUserId || f.UserId2 == currentUserId)
-                    .Include(f => f.User1) // Eager load User1 details
-                    .Include(f => f.User2) // Eager load User2 details
+                    .Include(f => f.User1)
+                    .Include(f => f.User2)
                     .ToListAsync();
 
                 var friends = new List<UserResponseDto>();
 
                 foreach (var friendship in friendships)
                 {
-                    // Add the "other" user in the friendship to the friends list
                     if (friendship.UserId1 == currentUserId)
                     {
                         friends.Add(new UserResponseDto
@@ -102,7 +103,7 @@ namespace CanWeGame.API.Controllers
                             CreatedDate = friendship.User2.CreatedDate
                         });
                     }
-                    else // friendship.UserId2 == currentUserId
+                    else
                     {
                         friends.Add(new UserResponseDto
                         {
@@ -127,7 +128,6 @@ namespace CanWeGame.API.Controllers
         }
 
         // POST: api/Users/friends/add
-        // Add a new friend for the current user
         [HttpPost("friends/add")]
         public async Task<IActionResult> AddFriend([FromBody] FriendRequestDto model)
         {
@@ -137,7 +137,6 @@ namespace CanWeGame.API.Controllers
                 int friendId;
                 User? friendUser;
 
-                // Try to parse as ID first, then search by username
                 if (int.TryParse(model.FriendIdentifier, out int parsedId))
                 {
                     friendUser = await _context.Users.FindAsync(parsedId);
@@ -146,7 +145,7 @@ namespace CanWeGame.API.Controllers
                 else
                 {
                     friendUser = await _context.Users.SingleOrDefaultAsync(u => u.Username == model.FriendIdentifier);
-                    friendId = friendUser?.Id ?? 0; // Use 0 if not found
+                    friendId = friendUser?.Id ?? 0;
                 }
 
                 if (friendUser == null)
@@ -159,13 +158,10 @@ namespace CanWeGame.API.Controllers
                     return BadRequest("Cannot add yourself as a friend.");
                 }
 
-                // Ensure UserId1 is always the smaller ID and UserId2 is the larger ID
-                // This prevents duplicate entries like (1,2) and (2,1)
                 var user1Id = Math.Min(currentUserId, friendId);
                 var user2Id = Math.Max(currentUserId, friendId);
 
-                // Check if friendship already exists
-                var existingFriendship = await _context.Friends
+                var existingFriendship = await _context.Friendships // Using Friendships DbSet
                     .AnyAsync(f => f.UserId1 == user1Id && f.UserId2 == user2Id);
 
                 if (existingFriendship)
@@ -173,14 +169,14 @@ namespace CanWeGame.API.Controllers
                     return Conflict("Friendship already exists.");
                 }
 
-                var newFriendship = new Friends
+                var newFriendship = new Friendship // Using Friendship model
                 {
                     UserId1 = user1Id,
                     UserId2 = user2Id,
                     EstablishedDate = DateTime.UtcNow
                 };
 
-                _context.Friends.Add(newFriendship);
+                _context.Friendships.Add(newFriendship); // Using Friendships DbSet
                 await _context.SaveChangesAsync();
 
                 return StatusCode(201, new { Message = $"Friendship established with {friendUser.Username}." });
@@ -196,7 +192,6 @@ namespace CanWeGame.API.Controllers
         }
 
         // DELETE: api/Users/friends/remove
-        // Remove a friend for the current user
         [HttpDelete("friends/remove")]
         public async Task<IActionResult> RemoveFriend([FromBody] FriendRequestDto model)
         {
@@ -222,11 +217,10 @@ namespace CanWeGame.API.Controllers
                     return NotFound("Friend user not found.");
                 }
 
-                // Determine the correct UserId1 and UserId2 for lookup
                 var user1Id = Math.Min(currentUserId, friendId);
                 var user2Id = Math.Max(currentUserId, friendId);
 
-                var friendshipToRemove = await _context.Friends
+                var friendshipToRemove = await _context.Friendships // Using Friendships DbSet
                     .SingleOrDefaultAsync(f => f.UserId1 == user1Id && f.UserId2 == user2Id);
 
                 if (friendshipToRemove == null)
@@ -234,10 +228,10 @@ namespace CanWeGame.API.Controllers
                     return NotFound("Friendship not found.");
                 }
 
-                _context.Friends.Remove(friendshipToRemove);
+                _context.Friendships.Remove(friendshipToRemove); // Using Friendships DbSet
                 await _context.SaveChangesAsync();
 
-                return NoContent(); // 204 No Content
+                return NoContent();
             }
             catch (InvalidOperationException ex)
             {

@@ -1,15 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims; // Still needed for User.FindFirstValue, though now it's for the commented-out original logic
+using Microsoft.AspNetCore.Authorization; // NOW REQUIRED AGAIN
+using System.Security.Claims; // Required for User.FindFirstValue
 using CanWeGame.API.Data;
 using CanWeGame.API.Models;
-using CanWeGame.API.Dtos.Schedules; // Corrected namespace for DTOs
+using CanWeGame.API.Dtos.Schedules;
 
 namespace CanWeGame.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // [Authorize] // REMOVED/COMMENTED OUT THIS LINE as requested
+    [Authorize] // RE-ENABLED: All endpoints in this controller now require authentication
     public class ScheduleController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -19,47 +20,38 @@ namespace CanWeGame.API.Controllers
             _context = context;
         }
 
-        // Helper method to get the current user's ID.
-        // TEMPORARY: Since authentication is disabled, this will return a fixed ID for testing.
-        // Ensure a user with this ID exists in your database (e.g., by registering one first).
-        // Once JWT authentication is re-introduced, this method will be restored to read from JWT claims.
+        // Helper method to get the current authenticated user's ID from the JWT claims
         private int GetCurrentUserId()
         {
-            // You MUST register a user first (e.g., via /api/Auth/register)
-            // and then use their actual ID here for testing.
-            // For example, if the first registered user gets ID 1, then use 1.
-            return 1; // <--- Set this to a known User ID from your database for testing.
-            // Original logic (for JWT-based authentication):
-            // var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            // if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
-            // {
-            //     // Changed to BadRequest as it's not an authentication failure without JWT setup
-            //     throw new InvalidOperationException("User ID context not available. Please ensure a user is logged in or for testing, ensure GetCurrentUserId returns a valid ID.");
-            // }
-            // return userId;
+            // This will now correctly read the user ID from the authenticated JWT token.
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+            {
+                // If this exception is thrown, it means the [Authorize] attribute failed,
+                // or the JWT token somehow didn't contain the NameIdentifier claim.
+                throw new InvalidOperationException("User ID claim not found or invalid in authenticated context.");
+            }
+            return userId;
         }
 
         // GET: api/Schedule/my
-        // Get schedules for the current user (based on the fixed GetCurrentUserId for now)
         [HttpGet("my")]
         public async Task<IActionResult> GetMySchedules()
         {
             try
             {
-                var currentUserId = GetCurrentUserId();
+                var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
 
-                var schedules = await _context.Schedules // Assuming DbSet is named 'Schedules' in your DbContext
+                var schedules = await _context.Schedules // Use Schedules DbSet
                     .Where(s => s.UserId == currentUserId)
-                    // Include the User navigation property if you need user details (e.g., email)
-                    // .Include(s => s.User)
-                    .Select(s => new ScheduleResponseDto // Map to DTO
+                    .Select(s => new ScheduleResponseDto
                     {
                         Id = s.Id,
                         UserId = s.UserId,
-                        Username = s.Username, // Assuming this is kept updated
+                        Username = s.Username,
                         GameTitle = s.GameTitle,
                         ScheduledTime = s.ScheduledTime,
-                        ScheduleDate = s.ScheduledTime.Date, // Use the date part of ScheduledTime
+                        ScheduleDate = s.ScheduledTime.Date,
                         IsWeekly = s.IsWeekly,
                         Description = s.Description,
                         CreatedDate = s.CreatedDate
@@ -70,23 +62,22 @@ namespace CanWeGame.API.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // Changed from Unauthorized to BadRequest as no JWT authentication is set up
-                return BadRequest(ex.Message);
+                // This error now implies an issue with authentication context/claims
+                return Unauthorized(ex.Message);
             }
             catch (Exception ex)
             {
-                // Log the exception (e.g., using ILogger)
+                // Log the exception
                 return StatusCode(500, "An error occurred while retrieving schedules.");
             }
         }
 
-        // GET: api/Schedule/user/{userId}
-        // Get schedules for a specific user (e.g., a friend)
+        // GET: api/Schedule/user/{userId} (for friends' schedules)
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetUserSchedules(int userId)
         {
-            // In a real application, you'd add authorization logic here
-            // to check if the requesting user is allowed to view this user's schedules.
+            // You would add explicit authorization logic here if needed (e.g., check if current user is friends with {userId})
+            // For now, it's accessible by any authenticated user.
 
             var userExists = await _context.Users.AnyAsync(u => u.Id == userId);
             if (!userExists)
@@ -94,7 +85,7 @@ namespace CanWeGame.API.Controllers
                 return NotFound($"User with ID {userId} not found.");
             }
 
-            var schedules = await _context.Schedules // Assuming DbSet is named 'Schedules' in your DbContext
+            var schedules = await _context.Schedules // Use Schedules DbSet
                 .Where(s => s.UserId == userId)
                 .Select(s => new ScheduleResponseDto
                 {
@@ -103,7 +94,7 @@ namespace CanWeGame.API.Controllers
                     Username = s.Username,
                     GameTitle = s.GameTitle,
                     ScheduledTime = s.ScheduledTime,
-                    ScheduleDate = s.ScheduledTime.Date, // Use the date part of ScheduledTime
+                    ScheduleDate = s.ScheduledTime.Date,
                     IsWeekly = s.IsWeekly,
                     Description = s.Description,
                     CreatedDate = s.CreatedDate
@@ -114,7 +105,6 @@ namespace CanWeGame.API.Controllers
         }
 
         // POST: api/Schedule
-        // Add a new gaming schedule for the current user
         [HttpPost]
         public async Task<IActionResult> AddSchedule([FromBody] ScheduleCreateDto model)
         {
@@ -125,33 +115,30 @@ namespace CanWeGame.API.Controllers
 
             try
             {
-                var currentUserId = GetCurrentUserId(); // Will use temporary fixed ID
+                var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
                 var currentUser = await _context.Users.FindAsync(currentUserId);
                 if (currentUser == null)
                 {
-                    // Changed from Unauthorized to BadRequest as no JWT authentication is set up
-                    return BadRequest("User not found for the specified ID. Please ensure user with this ID exists.");
+                    return Unauthorized("Authenticated user not found in the database.");
                 }
 
-                // Convert "y"/"n" string to boolean
                 bool isWeeklyBool = model.Weekly.Trim().Equals("y", StringComparison.OrdinalIgnoreCase);
 
-                var newSchedule = new Schedule
+                var newSchedule = new Schedule // Use GamingSchedule model
                 {
                     UserId = currentUserId,
-                    Username = currentUser.Username, // Get the current username from the User model
+                    Username = currentUser.Username,
                     GameTitle = model.GameTitle,
                     ScheduledTime = model.ScheduledTime,
-                    ScheduleDate = model.ScheduledTime.Date, // Extract just the date part
+                    ScheduleDate = model.ScheduledTime.Date,
                     IsWeekly = isWeeklyBool,
                     Description = model.Description,
                     CreatedDate = DateTime.UtcNow
                 };
 
-                _context.Schedules.Add(newSchedule); // Assuming DbSet is named 'Schedules' in your DbContext
+                _context.Schedules.Add(newSchedule); // Use Schedules DbSet
                 await _context.SaveChangesAsync();
 
-                // Return a DTO of the newly created schedule
                 var responseDto = new ScheduleResponseDto
                 {
                     Id = newSchedule.Id,
@@ -169,8 +156,7 @@ namespace CanWeGame.API.Controllers
             }
             catch (InvalidOperationException ex)
             {
-                // Changed from Unauthorized to BadRequest
-                return BadRequest(ex.Message);
+                return Unauthorized(ex.Message);
             }
             catch (Exception ex)
             {
@@ -180,7 +166,6 @@ namespace CanWeGame.API.Controllers
         }
 
         // PUT: api/Schedule/{id}
-        // Update an existing schedule for the current user
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateSchedule(int id, [FromBody] ScheduleUpdateDto model)
         {
@@ -191,10 +176,9 @@ namespace CanWeGame.API.Controllers
 
             try
             {
-                var currentUserId = GetCurrentUserId(); // Will use temporary fixed ID
+                var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
 
-                // Find the schedule by ID and ensure it belongs to the current user
-                var schedule = await _context.Schedules // Assuming DbSet is named 'Schedules' in your DbContext
+                var schedule = await _context.Schedules // Use Schedules DbSet
                     .SingleOrDefaultAsync(s => s.Id == id && s.UserId == currentUserId);
 
                 if (schedule == null)
@@ -202,26 +186,22 @@ namespace CanWeGame.API.Controllers
                     return NotFound("Schedule not found or you do not have permission to update it.");
                 }
 
-                // Convert "y"/"n" string to boolean
                 bool isWeeklyBool = model.Weekly.Trim().Equals("y", StringComparison.OrdinalIgnoreCase);
 
-                // Update properties
                 schedule.GameTitle = model.GameTitle;
                 schedule.ScheduledTime = model.ScheduledTime;
-                schedule.ScheduleDate = model.ScheduledTime.Date; // Update date part too
+                schedule.ScheduleDate = model.ScheduledTime.Date;
                 schedule.IsWeekly = isWeeklyBool;
                 schedule.Description = model.Description;
-                // CreatedDate should not change on update
 
-                _context.Schedules.Update(schedule); // Mark as modified
+                _context.Schedules.Update(schedule); // Use Schedules DbSet
                 await _context.SaveChangesAsync();
 
-                return NoContent(); // 204 No Content for successful update
+                return NoContent();
             }
             catch (InvalidOperationException ex)
             {
-                // Changed from Unauthorized to BadRequest
-                return BadRequest(ex.Message);
+                return Unauthorized(ex.Message);
             }
             catch (Exception ex)
             {
@@ -231,16 +211,14 @@ namespace CanWeGame.API.Controllers
         }
 
         // DELETE: api/Schedule/{id}
-        // Delete a schedule for the current user
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteSchedule(int id)
         {
             try
             {
-                var currentUserId = GetCurrentUserId(); // Will use temporary fixed ID
+                var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
 
-                // Find the schedule by ID and ensure it belongs to the current user
-                var schedule = await _context.Schedules // Assuming DbSet is named 'Schedules' in your DbContext
+                var schedule = await _context.Schedules // Use Schedules DbSet
                     .SingleOrDefaultAsync(s => s.Id == id && s.UserId == currentUserId);
 
                 if (schedule == null)
@@ -248,15 +226,14 @@ namespace CanWeGame.API.Controllers
                     return NotFound("Schedule not found or you do not have permission to delete it.");
                 }
 
-                _context.Schedules.Remove(schedule); // Mark for removal
+                _context.Schedules.Remove(schedule); // Use Schedules DbSet
                 await _context.SaveChangesAsync();
 
-                return NoContent(); // 204 No Content for successful deletion
+                return NoContent();
             }
             catch (InvalidOperationException ex)
             {
-                // Changed from Unauthorized to BadRequest
-                return BadRequest(ex.Message);
+                return Unauthorized(ex.Message);
             }
             catch (Exception ex)
             {

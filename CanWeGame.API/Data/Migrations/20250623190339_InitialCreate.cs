@@ -28,7 +28,7 @@ namespace CanWeGame.API.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Friends",
+                name: "Friendships",
                 columns: table => new
                 {
                     UserId1 = table.Column<int>(type: "INTEGER", nullable: false),
@@ -37,15 +37,15 @@ namespace CanWeGame.API.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Friends", x => new { x.UserId1, x.UserId2 });
+                    table.PrimaryKey("PK_Friendships", x => new { x.UserId1, x.UserId2 });
                     table.ForeignKey(
-                        name: "FK_Friends_Users_UserId1",
+                        name: "FK_Friendships_Users_UserId1",
                         column: x => x.UserId1,
                         principalTable: "Users",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Friends_Users_UserId2",
+                        name: "FK_Friendships_Users_UserId2",
                         column: x => x.UserId2,
                         principalTable: "Users",
                         principalColumn: "Id",
@@ -79,8 +79,8 @@ namespace CanWeGame.API.Data.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_Friends_UserId2",
-                table: "Friends",
+                name: "IX_Friendships_UserId2",
+                table: "Friendships",
                 column: "UserId2");
 
             migrationBuilder.CreateIndex(
@@ -105,7 +105,7 @@ namespace CanWeGame.API.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
-                name: "Friends");
+                name: "Friendships");
 
             migrationBuilder.DropTable(
                 name: "Schedules");

@@ -14,9 +14,9 @@ namespace CanWeGame.API.Models
         public ICollection<Schedule>? Schedules { get; set; }
 
         // A user can initiate many friendships (as the first user in the relationship)
-        public ICollection<Friends>? SentFriends { get; set; }
+        public ICollection<Friendship>? SentFriendships { get; set; }
 
         // A user can be the recipient in many friendships (as the second user in the relationship)
-        public ICollection<Friends>? ReceivedFriends { get; set; }
+        public ICollection<Friendship>? ReceivedFriendships { get; set; }
     }
 }

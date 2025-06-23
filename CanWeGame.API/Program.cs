@@ -1,7 +1,11 @@
 // Program.cs
 using Microsoft.EntityFrameworkCore;
-using CanWeGame.API.Data; // For ApplicationDbContext
-using CanWeGame.API.Services; // For PasswordHasher
+using CanWeGame.API.Data;
+using CanWeGame.API.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Microsoft.OpenApi.Models; // Required for OpenApiSecurityScheme and OpenApiSecurityRequirement
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,59 +15,98 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 
 // 2. Configure SQLite database connection
-// Reads the connection string named "DefaultConnection" from appsettings.json
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 3. Register your custom services (e.g., PasswordHasher, though it's static)
-// builder.Services.AddScoped<PasswordHasher>(); // Example if not static
+// 3. Register your custom services (PasswordHasher is static)
 
-// 4. JWT Authentication (TEMPORARILY REMOVED)
-// Removed: builder.Services.AddAuthentication(...)
-// Removed: builder.Services.AddAuthorization();
-// You won't see Jwt:Key, Issuer, Audience in appsettings.json used by code anymore for now.
+// 4. Configure JWT Authentication
+var jwtKey = builder.Configuration["Jwt:Key"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+if (string.IsNullOrEmpty(jwtKey) || string.IsNullOrEmpty(jwtIssuer) || string.IsNullOrEmpty(jwtAudience))
+{
+    throw new InvalidOperationException("One or more JWT configuration values (Key, Issuer, Audience) are missing in appsettings.json.");
+}
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
+        };
+    });
+
+builder.Services.AddAuthorization();
 
 // 5. Configure CORS (Cross-Origin Resource Sharing)
-// This is crucial for your React frontend running on a different port (e.g., 3000)
-// to be able to make requests to your backend (e.g., 7001).
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowReactApp", // Define a policy name
+    options.AddPolicy("AllowReactApp",
         builder => builder
-            .WithOrigins("http://localhost:3000") // Allow requests from your React development server
-                                                  // In production, this would be your React app's domain
-            .AllowAnyMethod()                     // Allow GET, POST, PUT, DELETE, etc.
-            .AllowAnyHeader()                     // Allow any HTTP headers (e.g., Content-Type, Authorization)
-            .AllowCredentials());                 // Allow credentials like cookies, authorization headers
+            .WithOrigins("http://localhost:3000") // Your React development server URL
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials());
 });
 
 
-// 6. Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// 6. Configure Swagger/OpenAPI for JWT Authentication
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(option =>
+{
+    // Define the security scheme for JWT Bearer authentication
+    option.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        In = ParameterLocation.Header,
+        Description = "Please enter a valid token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "Bearer"
+    });
+    // Add a security requirement that applies to all operations
+    option.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline (Middleware)
 
-// In Development environment, use Swagger UI for API documentation and testing
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger(); // Enables the Swagger middleware
-    app.UseSwaggerUI(); // Enables the Swagger UI (web page)
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection(); // Redirects HTTP requests to HTTPS (important for security)
+app.UseHttpsRedirection();
 
-// Use the CORS policy we defined. This must be before UseAuthorization (which is now removed).
 app.UseCors("AllowReactApp");
 
-// Authentication and Authorization (TEMPORARILY REMOVED)
-// Removed: app.UseAuthentication();
-// Removed: app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// Maps incoming requests to controller actions.
 app.MapControllers();
 
-// Runs the application. This is a blocking call that starts the web server.
 app.Run();
