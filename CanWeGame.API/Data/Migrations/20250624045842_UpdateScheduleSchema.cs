@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace CanWeGame.API.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class UpdateScheduleSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -61,8 +61,9 @@ namespace CanWeGame.API.Data.Migrations
                     UserId = table.Column<int>(type: "INTEGER", nullable: false),
                     Username = table.Column<string>(type: "TEXT", nullable: false),
                     GameTitle = table.Column<string>(type: "TEXT", nullable: false),
-                    ScheduledTime = table.Column<DateTime>(type: "TEXT", nullable: false),
-                    ScheduleDate = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    StartTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    EndTime = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    DaysOfWeek = table.Column<string>(type: "TEXT", nullable: false),
                     IsWeekly = table.Column<bool>(type: "INTEGER", nullable: false),
                     Description = table.Column<string>(type: "TEXT", nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "TEXT", nullable: false)

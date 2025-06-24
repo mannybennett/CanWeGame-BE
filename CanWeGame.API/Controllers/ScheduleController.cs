@@ -52,8 +52,9 @@ namespace CanWeGame.API.Controllers
                         UserId = s.UserId,
                         Username = s.Username,
                         GameTitle = s.GameTitle,
-                        ScheduledTime = s.ScheduledTime,
-                        ScheduleDate = s.ScheduledTime.Date,
+                        StartTime = s.StartTime,
+                        EndTime = s.EndTime,
+                        DaysOfWeek = s.DaysOfWeek, // List<string> will be serialized
                         IsWeekly = s.IsWeekly,
                         Description = s.Description,
                         CreatedDate = s.CreatedDate
@@ -95,8 +96,9 @@ namespace CanWeGame.API.Controllers
                     UserId = s.UserId,
                     Username = s.Username,
                     GameTitle = s.GameTitle,
-                    ScheduledTime = s.ScheduledTime,
-                    ScheduleDate = s.ScheduledTime.Date,
+                    StartTime = s.StartTime,
+                    EndTime = s.EndTime,
+                    DaysOfWeek = s.DaysOfWeek,
                     IsWeekly = s.IsWeekly,
                     Description = s.Description,
                     CreatedDate = s.CreatedDate
@@ -115,6 +117,18 @@ namespace CanWeGame.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            // Input validation for days of week
+            if (model.DaysOfWeek == null || model.DaysOfWeek.Count == 0)
+            {
+                return BadRequest("At least one day of the week must be provided.");
+            }
+            // Optional: Validate that days are from "M, T, W, Thu, F, Sat, Sun"
+            var validDays = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "M", "T", "W", "THU", "F", "SAT", "SUN" };
+            if (model.DaysOfWeek.Any(day => !validDays.Contains(day.ToUpper())))
+            {
+                return BadRequest("Invalid day of week provided. Valid options are M, T, W, Thu, F, Sat, Sun.");
+            }
+
             try
             {
                 var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
@@ -129,8 +143,9 @@ namespace CanWeGame.API.Controllers
                     UserId = currentUserId,
                     Username = currentUser.Username,
                     GameTitle = model.GameTitle,
-                    ScheduledTime = model.ScheduledTime,
-                    ScheduleDate = model.ScheduledTime.Date,
+                    StartTime = model.StartTime, // Assign new properties
+                    EndTime = model.EndTime,     // Assign new properties
+                    DaysOfWeek = model.DaysOfWeek, // Assign the list of strings
                     IsWeekly = model.Weekly,
                     Description = model.Description,
                     CreatedDate = DateTime.UtcNow
@@ -145,8 +160,9 @@ namespace CanWeGame.API.Controllers
                     UserId = newSchedule.UserId,
                     Username = newSchedule.Username,
                     GameTitle = newSchedule.GameTitle,
-                    ScheduledTime = newSchedule.ScheduledTime,
-                    ScheduleDate = newSchedule.ScheduleDate,
+                    StartTime = newSchedule.StartTime,
+                    EndTime = newSchedule.EndTime,
+                    DaysOfWeek = newSchedule.DaysOfWeek,
                     IsWeekly = newSchedule.IsWeekly,
                     Description = newSchedule.Description,
                     CreatedDate = newSchedule.CreatedDate
@@ -174,6 +190,17 @@ namespace CanWeGame.API.Controllers
                 return BadRequest(ModelState);
             }
 
+            // Input validation for days of week
+            if (model.DaysOfWeek == null || model.DaysOfWeek.Count == 0)
+            {
+                return BadRequest("At least one day of the week must be provided.");
+            }
+            var validDays = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "M", "T", "W", "THU", "F", "SAT", "SUN" };
+            if (model.DaysOfWeek.Any(day => !validDays.Contains(day.ToUpper())))
+            {
+                return BadRequest("Invalid day of week provided. Valid options are M, T, W, Thu, F, Sat, Sun.");
+            }
+
             try
             {
                 var currentUserId = GetCurrentUserId(); // Gets ID from JWT claims
@@ -187,8 +214,9 @@ namespace CanWeGame.API.Controllers
                 }
 
                 schedule.GameTitle = model.GameTitle;
-                schedule.ScheduledTime = model.ScheduledTime;
-                schedule.ScheduleDate = model.ScheduledTime.Date;
+                schedule.StartTime = model.StartTime;
+                schedule.EndTime = model.EndTime;
+                schedule.DaysOfWeek = model.DaysOfWeek;
                 schedule.IsWeekly = model.Weekly;
                 schedule.Description = model.Description;
 

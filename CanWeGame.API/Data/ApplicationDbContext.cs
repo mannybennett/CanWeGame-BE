@@ -1,4 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion; // Required for ValueConverter
+using Microsoft.EntityFrameworkCore.ChangeTracking; // REQUIRED for ValueComparer
+using System.Text.Json; // Required for JsonSerializer
+using System.Linq;
+using System.Collections.Generic;
 using CanWeGame.API.Models;
 
 namespace CanWeGame.API.Data
@@ -48,6 +53,32 @@ namespace CanWeGame.API.Data
                 .WithMany(u => u.ReceivedFriendships)
                 .HasForeignKey(f => f.UserId2)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // --- Schedule Model Configurations ---
+            // Configure ValueConverter for DaysOfWeek (List<string> to JSON string)
+            modelBuilder.Entity<Schedule>()
+                .Property(s => s.DaysOfWeek)
+                .HasConversion(
+                    new ValueConverter<List<string>, string>(
+                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null), // Convert List<string> to JSON string
+                        v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>() // Convert JSON string to List<string>
+                    )
+                );
+
+                // Configure ValueComparer for DaysOfWeek - separate method call
+            modelBuilder.Entity<Schedule>()
+                .Property(s => s.DaysOfWeek)
+                .Metadata
+                .SetValueComparer(
+                    new ValueComparer<List<string>>(
+                        // Comparison logic: Check if both lists are null, or if both are not null and their sorted elements are equal.
+                        (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.OrderBy(s => s).SequenceEqual(c2.OrderBy(s => s))),
+                        // Hashing logic: Combine hash codes of individual elements for efficient comparison in sets/dictionaries.
+                        c => c.Aggregate(0, (hash, str) => HashCode.Combine(hash, str.GetHashCode())),
+                        // Snapshotting logic: Create a new List<string> with the same elements (deep clone for value types like string).
+                        c => c.ToList()
+                    )
+                );
         }
     }
 }

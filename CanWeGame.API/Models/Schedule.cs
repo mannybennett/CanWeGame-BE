@@ -8,11 +8,11 @@ namespace CanWeGame.API.Models
         public string Username { get; set; } = string.Empty; // User's username at the time of schedule creation/update
 
         public string GameTitle { get; set; } = string.Empty; // Game title (your 'game' column)
-        public DateTime ScheduledTime { get; set; } // Specific time (your 'times' column)
-        public DateTime ScheduleDate { get; set; } // Specific date (your 'days' column)
+        public DateTime StartTime { get; set; } // Stores the start time of the game
+        public DateTime EndTime { get; set; }   // Stores the end time of the game
+        // This will be stored as a JSON string in the database using a ValueConverter
+        public List<string> DaysOfWeek { get; set; } = new List<string>(); // e.g., ["M", "T", "W"]
 
-        // Using a boolean for 'weekly' is more robust than "y" or "n" strings.
-        // It maps directly to true/false in C# and 0/1 in SQLite.
         public bool IsWeekly { get; set; } // Your 'weekly' column (true or false)
 
         public string? Description { get; set; } // Optional description

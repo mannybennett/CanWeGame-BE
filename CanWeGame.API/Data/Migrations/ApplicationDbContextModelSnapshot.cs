@@ -44,7 +44,14 @@ namespace CanWeGame.API.Data.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("DaysOfWeek")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Description")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EndTime")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("GameTitle")
@@ -54,10 +61,7 @@ namespace CanWeGame.API.Data.Migrations
                     b.Property<bool>("IsWeekly")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("ScheduleDate")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("ScheduledTime")
+                    b.Property<DateTime>("StartTime")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("UserId")
