@@ -8,8 +8,8 @@ namespace CanWeGame.API.Dtos.Schedules
         public int UserId { get; set; }
         public string Username { get; set; } = string.Empty; // Include username for display
         public string GameTitle { get; set; } = string.Empty;
-        public DateTime StartTime { get; set; }
-        public DateTime EndTime { get; set; }
+        public TimeOnly StartTime { get; set; }
+        public TimeOnly EndTime { get; set; }
 
         public List<string> DaysOfWeek { get; set; } = [];
         public bool IsWeekly { get; set; }

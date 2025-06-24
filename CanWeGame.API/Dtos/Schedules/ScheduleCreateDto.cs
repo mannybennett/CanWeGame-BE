@@ -8,10 +8,10 @@ namespace CanWeGame.API.Dtos.Schedules
         public string GameTitle { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Start time is required.")]
-        public DateTime StartTime { get; set; }
+        public TimeOnly StartTime { get; set; }
 
         [Required(ErrorMessage = "End time is required.")]
-        public DateTime EndTime { get; set; }
+        public TimeOnly EndTime { get; set; }
 
         [Required(ErrorMessage = "At least one day of the week is required.")]
         [MinLength(1, ErrorMessage = "At least one day of the week must be selected.")]

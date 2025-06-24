@@ -1,9 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion; // Required for ValueConverter
-using Microsoft.EntityFrameworkCore.ChangeTracking; // REQUIRED for ValueComparer
+using Microsoft.EntityFrameworkCore.ChangeTracking; // Required for ValueComparer
 using System.Text.Json; // Required for JsonSerializer
-using System.Linq;
-using System.Collections.Generic;
 using CanWeGame.API.Models;
 
 namespace CanWeGame.API.Data
@@ -60,7 +58,7 @@ namespace CanWeGame.API.Data
                 .Property(s => s.DaysOfWeek)
                 .HasConversion(
                     new ValueConverter<List<string>, string>(
-                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null), // Convert List<string> to JSON string
+                        v => JsonSerializer.Serialize(v, (JsonSerializerOptions?)null), // Convert List<string> to JSON string, "I know I'm passing null, & I confirm it to be treated as a null of this nullable type"
                         v => JsonSerializer.Deserialize<List<string>>(v, (JsonSerializerOptions?)null) ?? new List<string>() // Convert JSON string to List<string>
                     )
                 );
