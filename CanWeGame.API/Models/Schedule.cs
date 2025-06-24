@@ -13,7 +13,7 @@ namespace CanWeGame.API.Models
 
         // Using a boolean for 'weekly' is more robust than "y" or "n" strings.
         // It maps directly to true/false in C# and 0/1 in SQLite.
-        public bool IsWeekly { get; set; } // Your 'weekly' column ("y" or "n")
+        public bool IsWeekly { get; set; } // Your 'weekly' column (true or false)
 
         public string? Description { get; set; } // Optional description
 

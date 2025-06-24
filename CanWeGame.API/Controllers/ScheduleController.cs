@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Authorization; // NOW REQUIRED AGAIN
+using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims; // Required for User.FindFirstValue
 using CanWeGame.API.Data;
 using CanWeGame.API.Models;
@@ -10,12 +10,14 @@ namespace CanWeGame.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize] // RE-ENABLED: All endpoints in this controller now require authentication
+    [Authorize]
     public class ScheduleController : ControllerBase
     {
+        // ApplicationDbContext is a class that inherits from Microsoft.EntityFrameworkCore.DbContext.
+        // DbContext is the primary class in Entity Framework Core (EF Core) that represents a session with the database.
         private readonly ApplicationDbContext _context;
 
-        public ScheduleController(ApplicationDbContext context)
+        public ScheduleController(ApplicationDbContext context) // an instance of the database
         {
             _context = context;
         }
@@ -122,16 +124,14 @@ namespace CanWeGame.API.Controllers
                     return Unauthorized("Authenticated user not found in the database.");
                 }
 
-                bool isWeeklyBool = model.Weekly.Trim().Equals("y", StringComparison.OrdinalIgnoreCase);
-
-                var newSchedule = new Schedule // Use GamingSchedule model
+                var newSchedule = new Schedule // Use Schedule model
                 {
                     UserId = currentUserId,
                     Username = currentUser.Username,
                     GameTitle = model.GameTitle,
                     ScheduledTime = model.ScheduledTime,
                     ScheduleDate = model.ScheduledTime.Date,
-                    IsWeekly = isWeeklyBool,
+                    IsWeekly = model.Weekly,
                     Description = model.Description,
                     CreatedDate = DateTime.UtcNow
                 };
@@ -186,12 +186,10 @@ namespace CanWeGame.API.Controllers
                     return NotFound("Schedule not found or you do not have permission to update it.");
                 }
 
-                bool isWeeklyBool = model.Weekly.Trim().Equals("y", StringComparison.OrdinalIgnoreCase);
-
                 schedule.GameTitle = model.GameTitle;
                 schedule.ScheduledTime = model.ScheduledTime;
                 schedule.ScheduleDate = model.ScheduledTime.Date;
-                schedule.IsWeekly = isWeeklyBool;
+                schedule.IsWeekly = model.Weekly;
                 schedule.Description = model.Description;
 
                 _context.Schedules.Update(schedule); // Use Schedules DbSet

@@ -13,7 +13,7 @@ namespace CanWeGame.API.Dtos.Schedules
         // Note: We use bool for IsWeekly, but for the user input, it might be string "y"/"n"
         // We'll convert this in the controller.
         [Required(ErrorMessage = "Weekly preference is required ('y' or 'n').")]
-        public string Weekly { get; set; } = string.Empty; // User input as "y" or "n"
+        public bool Weekly { get; set; }
 
         public string? Description { get; set; } // Optional
     }

@@ -15,7 +15,7 @@ namespace CanWeGame.API.Dtos.Schedules
         public DateTime ScheduledTime { get; set; }
 
         [Required(ErrorMessage = "Weekly preference is required ('y' or 'n').")]
-        public string Weekly { get; set; } = string.Empty;
+        public bool Weekly { get; set; }
 
         public string? Description { get; set; }
     }

@@ -1,12 +1,12 @@
 using Microsoft.EntityFrameworkCore;
-using CanWeGame.API.Models; // Ensure namespace is CanWeGame.API.Models
+using CanWeGame.API.Models;
 
 namespace CanWeGame.API.Data
 {
     public class ApplicationDbContext : DbContext
     {
         public DbSet<User> Users { get; set; } = null!;
-        public DbSet<Schedule> Schedules { get; set; } = null!; // Corrected DbSet name
+        public DbSet<Schedule> Schedules { get; set; } = null!;
         public DbSet<Friendship> Friendships { get; set; } = null!;
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
