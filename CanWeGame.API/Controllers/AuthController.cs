@@ -5,7 +5,7 @@ using System.Security.Claims; // For Claims, ClaimTypes
 using System.Text; // For Encoding
 using Microsoft.IdentityModel.Tokens; // For SymmetricSecurityKey, SigningCredentials
 using Microsoft.Extensions.Configuration; // For IConfiguration
-
+using System.ComponentModel.DataAnnotations;
 using CanWeGame.API.Data;
 using CanWeGame.API.Models;
 using CanWeGame.API.Dtos.Auth;
@@ -29,27 +29,57 @@ namespace CanWeGame.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto model)
         {
+            // Initial Model State Validation (from Data Annotations)
+            // This handles [Required], [EmailAddress] (for basic format), [StringLength]
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            if (await _context.Users.AnyAsync(u => u.Username == model.Username))
+            // Trim leading/trailing whitespace from inputs
+            //    This is crucial for preventing subtle issues with copy-pasting
+            var username = model.Username.Trim();
+            var email = model.Email.Trim();
+            var password = model.Password; // Password will be trimmed below if needed
+
+            // Specific Backend Validation for Internal Spaces (Username)
+            // Even with client-side, always re-validate critical rules on backend.
+            if (username.Contains(' '))
+            {
+                // Add a model state error for consistency with other validation errors
+                ModelState.AddModelError("Username", "Username cannot contain spaces.");
+                return BadRequest(ModelState);
+            }
+
+            // Validate Email (After trimming, ensure it's still valid if trimming somehow affected it,
+            // though [EmailAddress] should catch most internal space issues already).
+            // This is a redundant check if [EmailAddress] works as expected, but safe.
+            // A simple EmailAddressAttribute instance can be used for runtime validation.
+            if (!new EmailAddressAttribute().IsValid(email))
+            {
+                 ModelState.AddModelError("Email", "Invalid email format after trimming.");
+                 return BadRequest(ModelState);
+            }
+
+
+            // Check for existing Username (using the trimmed version for consistency)
+            if (await _context.Users.AnyAsync(u => u.Username == username))
             {
                 return Conflict("Username already exists.");
             }
 
-            if (await _context.Users.AnyAsync(u => u.Email == model.Email))
+            // Check for existing Email (using the trimmed version for consistency)
+            if (await _context.Users.AnyAsync(u => u.Email == email))
             {
                 return Conflict("Email already exists.");
             }
+            string hashedPassword = PasswordHasher.HashPassword(password.Trim()); // Trim leading/trailing spaces for password
 
-            string hashedPassword = PasswordHasher.HashPassword(model.Password);
-
+            // Create new User object
             var newUser = new User
             {
-                Username = model.Username,
-                Email = model.Email,
+                Username = username, // Use the trimmed username
+                Email = email,       // Use the trimmed email
                 PasswordHash = hashedPassword,
                 CreatedDate = DateTime.UtcNow
             };
