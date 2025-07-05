@@ -63,7 +63,7 @@ namespace CanWeGame.API.Data
                     )
                 );
 
-                // Configure ValueComparer for DaysOfWeek - separate method call
+            // Configure ValueComparer for DaysOfWeek - separate method call
             modelBuilder.Entity<Schedule>()
                 .Property(s => s.DaysOfWeek)
                 .Metadata

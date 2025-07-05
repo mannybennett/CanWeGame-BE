@@ -1,7 +1,7 @@
 // Program.cs
 using Microsoft.EntityFrameworkCore;
 using CanWeGame.API.Data;
-using CanWeGame.API.Services;
+using CanWeGame.API.Converters;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -11,14 +11,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-// 1. Add Controllers for API endpoints
-builder.Services.AddControllers();
+// 1. Add Controllers for API endpoints and configure JSON options
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
+    });
 
 // 2. Configure SQLite database connection
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-// 3. Register your custom services (PasswordHasher is static)
 
 // 4. Configure JWT Authentication
 var jwtKey = builder.Configuration["Jwt:Key"];
