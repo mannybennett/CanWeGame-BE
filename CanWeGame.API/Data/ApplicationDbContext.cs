@@ -10,7 +10,7 @@ namespace CanWeGame.API.Data
     {
         public DbSet<User> Users { get; set; } = null!;
         public DbSet<Schedule> Schedules { get; set; } = null!;
-        public DbSet<Friendship> Friendships { get; set; } = null!;
+        public DbSet<Friendship> Friendships { get; set; } = null!; // I have a database table named Friendships that stores data according to the Friendship C# model.
 
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
